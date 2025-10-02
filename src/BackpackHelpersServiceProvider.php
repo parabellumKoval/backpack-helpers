@@ -41,7 +41,8 @@ class BackpackHelpersServiceProvider extends ServiceProvider
 
     private function addScripts() {
         $scripts = config('backpack.base.scripts', []);
-        $path = 'packages/backpack/helpers/js/bp-dependent-options.js';
+        // $path = 'packages/backpack/helpers/js/bp-dependent-options.js';
+        $path = 'packages/backpack/helpers/js/dependent-fields.js';
 
         if (!in_array($path, $scripts, true)) {
             config()->set('backpack.base.scripts', array_merge($scripts, [$path]));
