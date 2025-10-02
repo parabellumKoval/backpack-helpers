@@ -1,5 +1,6 @@
 <!-- fail, completed, pending, canceled, new -->
 @php
+
 $style = isset($muted) && $muted? 'opacity: 0.4;': '';
 $small = !empty($small)? $small: false;
 $price = $price? round($price, 2): null;

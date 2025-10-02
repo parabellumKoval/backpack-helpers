@@ -127,7 +127,7 @@ Both drivers and satellites can be of these Backpack field types:
 ## Deliverables
 1. A script at:
    ```
-   public/packages/backpack/helpers/js/dependent-fields.js
+   src/public/js/dependent-fields.js
    ```
 2. Implementation of:
    - `bpFieldInitDependentOptions`

@@ -11,6 +11,11 @@ class BackpackHelpersServiceProvider extends ServiceProvider
     public function boot()
     {
 
+        $helpers = __DIR__ . '/app/helpers.php';
+        if (file_exists($helpers)) {
+            require_once $helpers;
+        }
+
         // Добавляем кастомный путь для представлений Backpack
         View::addNamespace('crud', [
             resource_path('views/vendor/backpack/crud'),
