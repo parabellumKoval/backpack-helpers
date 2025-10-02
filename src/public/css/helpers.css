@@ -1,0 +1,19 @@
+a.dark-link {
+  display: inline-block;
+  color: #000;
+}
+a.dark-link:hover {
+  color: #4024e8;
+}
+a.dark-link:hover *  {
+  text-decoration: underline;
+}
+
+.no-padding {
+  padding: 0 !important;
+}
+
+.bp-tree-children {
+  background: #eee;
+  padding: 20px;
+}

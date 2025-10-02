@@ -1,0 +1,30 @@
+{
+    "name": "parabellumkoval/backpack-helpers",
+    "description": "Helpers for Laravel Backpack 4.1 - extra columns, fields, traits and services.",
+    "type": "library",
+    "homepage": "https://github.com/parabellumkoval/backpack-helpers",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Andrej Koval",
+            "homepage": "https://github.com/parabellumkoval"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": "^12.0",
+        "backpack/crud": "dev-store"
+    },
+    "autoload": {
+        "psr-4": {
+            "Backpack\\Helpers\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Backpack\\Helpers\\BackpackHelpersServiceProvider"
+            ]
+        }
+    }
+}
