@@ -1,711 +1,493 @@
 (function($) {
     'use strict';
 
-    var instanceCounter = 0;
-
-    function cssEscape(value) {
-        if (typeof value !== 'string') {
-            value = value + '';
-        }
-
-        if (window.CSS && typeof window.CSS.escape === 'function') {
-            return window.CSS.escape(value);
-        }
-
-        return value.replace(/[^a-zA-Z0-9_-]/g, function(character) {
-            return '\\' + character;
-        });
+    if (typeof $ === 'undefined') {
+        return;
     }
 
-    function uniqueScopes(scopes) {
-        var seen = [];
-        var unique = [];
+    var DependentFieldManager = (function() {
+        var contexts = [];
+        var observer = null;
+        var driverEventBound = false;
 
-        $.each(scopes, function(_, $scope) {
-            if (!$scope || !$scope.length) {
-                return;
+        function init() {
+            if (!driverEventBound) {
+                $(document).on('change', '[data-dep-source]', onDriverChanged);
+                driverEventBound = true;
             }
 
-            var element = $scope.get(0);
-
-            if (seen.indexOf(element) === -1) {
-                seen.push(element);
-                unique.push($scope);
-            }
-        });
-
-        return unique;
-    }
-
-    function parseDependsOn(value) {
-        if (!value) {
-            return [];
-        }
-
-        if ($.isArray(value)) {
-            return value;
-        }
-
-        return value
-            .toString()
-            .split(',')
-            .map(function(item) {
-                return $.trim(item);
-            })
-            .filter(function(item) {
-                return item.length > 0;
-            });
-    }
-
-    function parseMap(mapString) {
-        if (!mapString) {
-            return null;
-        }
-
-        if ($.isPlainObject(mapString)) {
-            return mapString;
-        }
-
-        try {
-            return JSON.parse(mapString);
-        } catch (error) {
-            console.warn('Backpack dependent fields: unable to parse map', error);
-            return null;
-        }
-    }
-
-    function getScopeRoots($field, scopeAttribute) {
-        if (scopeAttribute && scopeAttribute !== 'auto') {
-            var $custom = $field.closest(scopeAttribute);
-            if ($custom.length) {
-                return uniqueScopes([$custom]);
-            }
-        }
-
-        var scopes = [];
-
-        var $repeatable = $field.closest('[data-repeatable-identifier]');
-        if ($repeatable.length) {
-            scopes.push($repeatable);
-        }
-
-        var $conditional = $field.closest('[data-conditional-field]');
-        if ($conditional.length) {
-            scopes.push($conditional);
-        }
-
-        var $formGroup = $field.closest('.form-group');
-        if ($formGroup.length) {
-            scopes.push($formGroup);
-        }
-
-        var $form = $field.closest('form');
-        if ($form.length) {
-            scopes.push($form);
-        }
-
-        if (!scopes.length) {
-            scopes.push($(document));
-        }
-
-        return uniqueScopes(scopes);
-    }
-
-    function buildDriverSelector(name) {
-        var escaped = cssEscape(name);
-        var selectors = [
-            '[data-dep-source="' + escaped + '"]',
-            '[data-repeatable-input-name="' + escaped + '"]',
-            '[name="' + escaped + '"]',
-            '[name="' + escaped + '[]"]',
-            '[name$="[' + escaped + ']"]',
-            '[name$="[' + escaped + '][]"]'
-        ];
-
-        return selectors.join(',');
-    }
-
-    function findDriverInScopes(scopes, name, $exclude) {
-        var selector = buildDriverSelector(name);
-        var $found = $();
-
-        $.each(scopes, function(_, $scope) {
-            if ($found.length) {
-                return false;
-            }
-
-            $found = $scope.find(selector).filter(function() {
-                return !$exclude || this !== $exclude.get(0);
-            });
-        });
-
-        return $found.first();
-    }
-
-    function normalizeDriverValue(value) {
-        if (value === null || typeof value === 'undefined') {
-            return [];
-        }
-
-        if ($.isArray(value)) {
-            return value.filter(function(item) {
-                return item !== null && typeof item !== 'undefined' && item !== '';
-            }).map(function(item) {
-                return item + '';
-            });
-        }
-
-        if (typeof value === 'string') {
-            if (value === '') {
-                return [];
-            }
-
-            return [value];
-        }
-
-        return [value + ''];
-    }
-
-    function normalizeOption(option, key) {
-        if (typeof option === 'undefined' || option === null) {
-            return null;
-        }
-
-        if ($.isPlainObject(option)) {
-            var value = option.value;
-            var label = option.label;
-
-            if (typeof value === 'undefined') {
-                value = typeof key !== 'undefined' ? key : option.id;
-            }
-
-            if (typeof label === 'undefined') {
-                label = option.text || option.name;
-            }
-
-            if (typeof value === 'undefined' || typeof label === 'undefined') {
-                return null;
-            }
-
-            var normalized = {
-                value: value + '',
-                label: label + ''
-            };
-
-            if (option.disabled) {
-                normalized.disabled = true;
-            }
-
-            if (option.placeholder) {
-                normalized.placeholder = true;
-            }
-
-            return normalized;
-        }
-
-        if (typeof option === 'string' || typeof option === 'number') {
-            var normalizedOption = {
-                value: (typeof key !== 'undefined' ? key + '' : option + ''),
-                label: option + ''
-            };
-
-            return normalizedOption;
-        }
-
-        return null;
-    }
-
-    function normalizeOptionsCollection(options) {
-        var normalized = [];
-
-        if (!options && options !== 0) {
-            return normalized;
-        }
-
-        if ($.isArray(options)) {
-            $.each(options, function(index, option) {
-                var normalizedOption = normalizeOption(option);
-
-                if (normalizedOption) {
-                    normalized.push(normalizedOption);
-                }
-            });
-
-            return normalized;
-        }
-
-        if ($.isPlainObject(options)) {
-            $.each(options, function(key, option) {
-                var normalizedOption = normalizeOption(option, key);
-
-                if (normalizedOption) {
-                    normalized.push(normalizedOption);
-                }
-            });
-
-            return normalized;
-        }
-
-        return normalized;
-    }
-
-    function escapeHtml(value) {
-        return (value + '').replace(/[&<>"']/g, function(character) {
-            switch (character) {
-                case '&': return '&amp;';
-                case '<': return '&lt;';
-                case '>': return '&gt;';
-                case '"': return '&quot;';
-                case "'": return '&#39;';
-            }
-            return character;
-        });
-    }
-
-    function collectExistingOptionLabels($field) {
-        var labels = {};
-
-        $field.find('option').each(function() {
-            labels[this.value] = $(this).text();
-        });
-
-        return labels;
-    }
-
-    function getPlaceholderData($field) {
-        var placeholderText = $field.attr('data-placeholder');
-        var $placeholderOption = $field.find('option').filter(function() {
-            return this.value === '';
-        }).first();
-
-        if ($placeholderOption.length) {
-            placeholderText = $placeholderOption.text();
-        }
-
-        if (typeof placeholderText === 'undefined') {
-            return null;
-        }
-
-        return {
-            value: '',
-            label: placeholderText + '',
-            placeholder: true
-        };
-    }
-
-    function DependentField($field) {
-        this.$field = $field;
-        this.instanceId = ++instanceCounter;
-        this.dependsOn = parseDependsOn($field.data('depends-on'));
-        this.scopeAttribute = $field.data('dep-scope');
-        this.map = parseMap($field.data('dep-map'));
-        this.urlTemplate = $field.data('dep-url') || null;
-        this.scopeRoots = getScopeRoots($field, this.scopeAttribute);
-        this.driverElements = {};
-        this.observer = null;
-        this.pendingRequest = null;
-        this.initialPopulation = true;
-
-        this.init();
-    }
-
-    DependentField.prototype.init = function() {
-        if (!this.dependsOn.length) {
-            return;
-        }
-
-        this.bindDrivers();
-        this.refresh();
-    };
-
-    DependentField.prototype.bindDrivers = function() {
-        var self = this;
-
-        this.detachDriverListeners();
-        var resolution = this.resolveDrivers();
-        this.driverElements = resolution.drivers;
-
-        $.each(this.driverElements, function(name, $driver) {
-            if (!$driver || !$driver.length) {
-                return;
-            }
-
-            var namespace = '.dependentOptions.' + self.instanceId + '.' + name;
-
-            $driver.off(namespace);
-            $driver.on('change' + namespace + ' input' + namespace, function() {
-                self.refresh();
-            });
-        });
-
-        if (!resolution.allFound) {
-            this.observeForDrivers();
-        } else {
-            this.disconnectObserver();
-        }
-    };
-
-    DependentField.prototype.detachDriverListeners = function() {
-        var self = this;
-
-        $.each(this.driverElements, function(name, $driver) {
-            if (!$driver || !$driver.length) {
-                return;
-            }
-
-            var namespace = '.dependentOptions.' + self.instanceId + '.' + name;
-            $driver.off(namespace);
-        });
-    };
-
-    DependentField.prototype.observeForDrivers = function() {
-        var self = this;
-
-        if (this.observer) {
-            return;
-        }
-
-        this.observer = new MutationObserver(function() {
-            var resolution = self.resolveDrivers();
-
-            if (!resolution.allFound) {
-                return;
-            }
-
-            self.driverElements = resolution.drivers;
-            self.bindDrivers();
-            self.refresh();
-            self.disconnectObserver();
-        });
-
-        $.each(this.scopeRoots, function(_, $scope) {
-            if (!$scope || !$scope.length) {
-                return;
-            }
-
-            self.observer.observe($scope.get(0), { childList: true, subtree: true });
-        });
-    };
-
-    DependentField.prototype.disconnectObserver = function() {
-        if (this.observer) {
-            this.observer.disconnect();
-            this.observer = null;
-        }
-    };
-
-    DependentField.prototype.resolveDrivers = function() {
-        var self = this;
-        var drivers = {};
-        var allFound = true;
-
-        $.each(this.dependsOn, function(_, name) {
-            var $driver = findDriverInScopes(self.scopeRoots, name, self.$field);
-
-            if (!$driver || !$driver.length) {
-                allFound = false;
-            }
-
-            drivers[name] = $driver;
-        });
-
-        return {
-            drivers: drivers,
-            allFound: allFound
-        };
-    };
-
-    DependentField.prototype.hasAllDrivers = function() {
-        var ready = true;
-
-        $.each(this.dependsOn, function(_, name) {
-            var $driver = this.driverElements[name];
-
-            if (!$driver || !$driver.length) {
-                ready = false;
-                return false;
-            }
-        }.bind(this));
-
-        return ready;
-    };
-
-    DependentField.prototype.getDriverValues = function() {
-        var self = this;
-        var values = {};
-
-        $.each(this.dependsOn, function(_, name) {
-            var $driver = self.driverElements[name];
-
-            if (!$driver || !$driver.length) {
-                values[name] = [];
-                return;
-            }
-
-            values[name] = normalizeDriverValue($driver.val());
-        });
-
-        return values;
-    };
-
-    DependentField.prototype.findMapEntryForValue = function(value) {
-        if (!this.map) {
-            return null;
-        }
-
-        if (Object.prototype.hasOwnProperty.call(this.map, value)) {
-            return this.map[value];
-        }
-
-        var found = null;
-
-        $.each(this.map, function(key, entry) {
-            if (key === '*' || found) {
-                return;
-            }
-
-            if (key.charAt(0) === '[' && key.charAt(key.length - 1) === ']') {
-                var keys = key.substring(1, key.length - 1).split(',').map(function(item) {
-                    return $.trim(item);
+            if (!observer && typeof MutationObserver !== 'undefined') {
+                observer = new MutationObserver(function() {
+                    contexts.forEach(function(context) {
+                        if (!context.driverElement || !document.body.contains(context.driverElement)) {
+                            ensureDriver(context, true);
+                        }
+                    });
                 });
 
-                if (keys.indexOf(value) !== -1) {
-                    found = entry;
+                if (document.body) {
+                    observer.observe(document.body, { childList: true, subtree: true });
                 }
             }
-        });
-
-        if (found) {
-            return found;
         }
 
-        if (Object.prototype.hasOwnProperty.call(this.map, '*')) {
-            return this.map['*'];
-        }
+        function register(element) {
+            init();
 
-        return null;
-    };
+            var $field = $(element);
 
-    DependentField.prototype.getOptionsFromMap = function(driverValues) {
-        if (!this.map) {
-            return [];
-        }
-
-        var self = this;
-        var aggregated = [];
-        var hasMatch = false;
-
-        $.each(this.dependsOn, function(_, name) {
-            var values = driverValues[name] || [];
-
-            $.each(values, function(_, value) {
-                var entry = self.findMapEntryForValue(value);
-
-                if (entry !== null && typeof entry !== 'undefined') {
-                    hasMatch = true;
-                    aggregated = aggregated.concat(normalizeOptionsCollection(entry));
+            if (!$field.length || $field.data('dependentFieldInitialized')) {
+                var context = $field.data('dependentFieldContext');
+                if (context) {
+                    ensureDriver(context, true);
+                    triggerUpdate(context);
                 }
+                return;
+            }
+
+            var dependency = $field.data('depends-on');
+            if (!dependency) {
+                return;
+            }
+
+            var context = {
+                fieldElement: $field.get(0),
+                $field: $field,
+                dependency: dependency,
+                scope: $field.data('dep-scope') || 'auto',
+                map: parseMap($field.data('dep-map')),
+                url: $field.data('dep-url') || null,
+                driverElement: null,
+                lastDriverValue: null,
+                placeholder: capturePlaceholder($field),
+                pendingRequest: null,
+                pendingTimeout: null
+            };
+
+            $field.data('dependentFieldInitialized', true);
+            $field.data('dependentFieldContext', context);
+
+            contexts.push(context);
+            ensureDriver(context, true);
+            triggerUpdate(context);
+        }
+
+        function onDriverChanged(event) {
+            contexts = contexts.filter(function(context) {
+                if (!context.fieldElement || !document.body.contains(context.fieldElement)) {
+                    return false;
+                }
+                return true;
             });
-        });
 
-        if (!hasMatch && Object.prototype.hasOwnProperty.call(this.map, '*')) {
-            aggregated = normalizeOptionsCollection(this.map['*']);
-        }
-
-        return aggregated;
-    };
-
-    DependentField.prototype.buildRequestUrl = function(driverValues) {
-        var template = this.urlTemplate;
-
-        if (!template) {
-            return null;
-        }
-
-        var replacements = {};
-
-        if (this.dependsOn.length) {
-            var primaryName = this.dependsOn[0];
-            replacements.value = (driverValues[primaryName] || []).join(',');
-        }
-
-        $.each(this.dependsOn, function(_, name) {
-            replacements[name] = (driverValues[name] || []).join(',');
-        });
-
-        return template.replace(/\{([^}]+)\}/g, function(_, key) {
-            if (!Object.prototype.hasOwnProperty.call(replacements, key)) {
-                return '';
-            }
-
-            return encodeURIComponent(replacements[key]);
-        });
-    };
-
-    DependentField.prototype.fetchOptionsFromUrl = function(driverValues, callback) {
-        var self = this;
-        var url = this.buildRequestUrl(driverValues);
-
-        if (!url) {
-            callback([]);
-            return;
-        }
-
-        if (this.pendingRequest && typeof this.pendingRequest.abort === 'function') {
-            this.pendingRequest.abort();
-        }
-
-        this.pendingRequest = $.ajax({
-            url: url,
-            method: 'GET',
-            dataType: 'json'
-        })
-            .done(function(response) {
-                callback(response);
-            })
-            .fail(function(jqXHR, textStatus) {
-                if (textStatus === 'abort') {
+            contexts.forEach(function(context) {
+                if (!context.fieldElement || context.fieldElement.disabled) {
                     return;
                 }
 
-                console.warn('Backpack dependent fields: unable to load options from URL', url);
-                callback([]);
-            })
-            .always(function() {
-                self.pendingRequest = null;
+                if (!context.driverElement) {
+                    ensureDriver(context, true);
+                }
+
+                if (context.driverElement === event.target) {
+                    triggerUpdate(context);
+                }
             });
-    };
-
-    DependentField.prototype.getSelectedValues = function() {
-        return normalizeDriverValue(this.$field.val());
-    };
-
-    DependentField.prototype.applyOptions = function(options) {
-        var $field = this.$field;
-        var multiple = $field.prop('multiple');
-        var selectedValues = this.getSelectedValues();
-        var labels = collectExistingOptionLabels($field);
-        var placeholder = getPlaceholderData($field);
-        var optionMap = {};
-        var rendered = [];
-
-        if (placeholder) {
-            optionMap[placeholder.value] = placeholder;
-            rendered.push(placeholder);
         }
 
-        $.each(options, function(_, option) {
-            if (!option || typeof option.value === 'undefined') {
+        function ensureDriver(context, searchGlobal) {
+            if (!context.fieldElement || !document.body.contains(context.fieldElement)) {
+                return null;
+            }
+
+            if (context.driverElement && document.body.contains(context.driverElement)) {
+                return context.driverElement;
+            }
+
+            var selector = '[data-dep-source="' + cssEscape(context.dependency) + '"]';
+            var $scope;
+
+            var rowNumber = context.$field.attr('data-row-number') || context.$field.closest('[data-row-number]').attr('data-row-number');
+            if (rowNumber) {
+                var repeatableSelector = '[data-repeatable-input-name="' + cssEscape(context.dependency) + '"][data-row-number="' + cssEscape(rowNumber) + '"]' +
+                    ',[data-repeatable-input-name="' + cssEscape(context.dependency) + '[]"][data-row-number="' + cssEscape(rowNumber) + '"]';
+                var $repeatableDriver = $(repeatableSelector).filter(function() {
+                    return document.body.contains(this);
+                }).first();
+                if ($repeatableDriver.length) {
+                    context.driverElement = $repeatableDriver.get(0);
+                    return context.driverElement;
+                }
+            }
+
+            if (context.scope && context.scope !== 'auto') {
+                $scope = context.$field.closest(context.scope);
+                if ($scope && $scope.length) {
+                    var $driverScoped = $scope.find(selector).first();
+                    if ($driverScoped.length) {
+                        context.driverElement = $driverScoped.get(0);
+                        return context.driverElement;
+                    }
+                }
+            }
+
+            if (searchGlobal) {
+                var $closestForm = context.$field.closest('form');
+                if ($closestForm.length) {
+                    var $driverForm = $closestForm.find(selector).filter(function() {
+                        return document.body.contains(this);
+                    }).first();
+                    if ($driverForm.length) {
+                        context.driverElement = $driverForm.get(0);
+                        return context.driverElement;
+                    }
+                }
+
+                var $driver = $(selector).filter(function() {
+                    if (!document.body.contains(this)) {
+                        return false;
+                    }
+                    if (context.scope === 'auto') {
+                        return true;
+                    }
+                    return !context.$field.closest(context.scope).length;
+                }).first();
+
+                if ($driver.length) {
+                    context.driverElement = $driver.get(0);
+                    return context.driverElement;
+                }
+            }
+
+            context.driverElement = null;
+            return null;
+        }
+
+        function triggerUpdate(context) {
+            if (!context.fieldElement || !document.body.contains(context.fieldElement)) {
                 return;
             }
 
-            var value = option.value + '';
+            if (context.pendingTimeout) {
+                clearTimeout(context.pendingTimeout);
+                context.pendingTimeout = null;
+            }
 
-            if (optionMap.hasOwnProperty(value)) {
+            var driver = ensureDriver(context, true);
+            if (!driver) {
+                context.pendingTimeout = setTimeout(function() {
+                    triggerUpdate(context);
+                }, 250);
                 return;
             }
 
-            optionMap[value] = option;
-            rendered.push(option);
-        });
+            var driverValue = getDriverValue($(driver));
 
-        $.each(selectedValues, function(_, value) {
-            if (value === '') {
+            if (context.lastDriverValue !== null && valuesEqual(context.lastDriverValue, driverValue)) {
                 return;
             }
 
-            if (optionMap.hasOwnProperty(value)) {
-                return;
-            }
-
-            var label = labels[value] || value;
-            var option = {
-                value: value,
-                label: label
-            };
-
-            optionMap[value] = option;
-            rendered.push(option);
-        });
-
-        var html = rendered.map(function(option) {
-            var attributes = '';
-
-            if (option.disabled) {
-                attributes += ' disabled';
-            }
-
-            if (option.placeholder) {
-                attributes += ' data-placeholder="true"';
-            }
-
-            return '<option value="' + escapeHtml(option.value) + '"' + attributes + '>' + escapeHtml(option.label) + '</option>';
-        }).join('');
-
-        $field.html(html);
-
-        if (multiple) {
-            $field.val(selectedValues);
-        } else {
-            var selected = selectedValues.length ? selectedValues[0] : '';
-
-            if (!optionMap.hasOwnProperty(selected)) {
-                selected = placeholder ? placeholder.value : '';
-            }
-
-            $field.val(selected);
+            context.lastDriverValue = cloneValue(driverValue);
+            loadOptions(context, driverValue);
         }
 
-        if ($field.hasClass('select2-hidden-accessible')) {
-            $field.trigger('change.select2');
-        } else {
-            $field.trigger('change');
-        }
-    };
+        function loadOptions(context, driverValue) {
+            if (context.pendingRequest && context.pendingRequest.abort) {
+                context.pendingRequest.abort();
+            }
 
-    DependentField.prototype.refresh = function() {
-        if (!this.dependsOn.length) {
-            return;
-        }
+            var $field = context.$field;
+            $field.trigger('dependent.start');
 
-        if (!this.hasAllDrivers()) {
-            return;
-        }
+            var request;
+            if (context.map) {
+                request = $.Deferred();
+                request.resolve(resolveFromMap(context.map, driverValue));
+            } else if (context.url) {
+                var url = buildUrl(context.url, driverValue);
+                request = $.ajax({
+                    url: url,
+                    method: 'GET',
+                    dataType: 'json'
+                });
+            } else {
+                request = $.Deferred();
+                request.resolve([]);
+            }
 
-        var self = this;
-        var driverValues = this.getDriverValues();
+            context.pendingRequest = request;
 
-        if (this.urlTemplate) {
-            this.fetchOptionsFromUrl(driverValues, function(response) {
-                var normalized = normalizeOptionsCollection(response);
-                self.applyOptions(normalized);
-                self.initialPopulation = false;
+            request.done(function(data) {
+                applyOptions(context, data);
+                $field.trigger('dependent.success', [data]);
+            }).fail(function(jqXHR, status) {
+                if (status !== 'abort') {
+                    console.error('Dependent field request failed for', context.dependency, status);
+                    $field.trigger('dependent.error', [status]);
+                }
+            }).always(function() {
+                context.pendingRequest = null;
+                $field.trigger('dependent.finish');
             });
-            return;
         }
 
-        var options = this.getOptionsFromMap(driverValues);
-        this.applyOptions(options);
-        this.initialPopulation = false;
-    };
+        function applyOptions(context, data) {
+            var $field = context.$field;
+            if (!$field.length) {
+                return;
+            }
+
+            var previousLabels = {};
+            $field.find('option').each(function() {
+                var value = $(this).attr('value');
+                if (typeof value === 'undefined') {
+                    value = '';
+                }
+                previousLabels[value] = $(this).text();
+            });
+
+            var currentValue = getFieldValue($field);
+            var currentValues = Array.isArray(currentValue) ? currentValue.slice() : (currentValue === null ? [] : [currentValue]);
+
+            var options = normalizeOptions(data);
+            var optionValues = {};
+
+            $field.empty();
+
+            if (context.placeholder) {
+                $field.append(context.placeholder.clone());
+            }
+
+            options.forEach(function(option) {
+                if (typeof option.value === 'undefined' || option.value === null) {
+                    option.value = '';
+                }
+                var isSelected = currentValues.indexOf(option.value.toString()) !== -1;
+                var optionElement = new Option(option.label, option.value, isSelected, isSelected);
+                optionValues[option.value] = true;
+                $field.append(optionElement);
+            });
+
+            currentValues.forEach(function(value) {
+                if (value === null || typeof value === 'undefined' || value === '') {
+                    return;
+                }
+                var key = value.toString();
+                if (!optionValues[key]) {
+                    var label = previousLabels[key] || key;
+                    var optionElement = new Option(label, key, true, true);
+                    $field.append(optionElement);
+                }
+            });
+
+            setFieldValue($field, currentValues);
+        }
+
+        function parseMap(map) {
+            if (!map) {
+                return null;
+            }
+
+            if (typeof map === 'object') {
+                return map;
+            }
+
+            try {
+                return JSON.parse(map);
+            } catch (error) {
+                console.error('Invalid data-dep-map JSON', error);
+                return null;
+            }
+        }
+
+        function capturePlaceholder($field) {
+            var placeholderOption = null;
+            var $firstEmpty = $field.find('option[value=""]').first();
+            if ($firstEmpty.length) {
+                placeholderOption = $firstEmpty.clone();
+            } else {
+                var placeholderText = $field.attr('data-placeholder') || $field.attr('placeholder');
+                if (placeholderText) {
+                    placeholderOption = $('<option></option>').attr('value', '').text(placeholderText);
+                }
+            }
+            return placeholderOption;
+        }
+
+        function resolveFromMap(map, driverValue) {
+            var values = normalizeToArray(driverValue);
+            var resolved = {};
+            var matched = false;
+
+            values.forEach(function(value) {
+                var key = value === null || typeof value === 'undefined' ? '' : value.toString();
+                if (!key) {
+                    return;
+                }
+
+                if (Object.prototype.hasOwnProperty.call(map, key)) {
+                    $.extend(resolved, map[key]);
+                    matched = true;
+                    return;
+                }
+
+                Object.keys(map).forEach(function(mapKey) {
+                    if (mapKey.charAt(0) === '[' && mapKey.charAt(mapKey.length - 1) === ']') {
+                        var tokens = mapKey.substring(1, mapKey.length - 1).split(/\s*,\s*/);
+                        if (tokens.indexOf(key) !== -1) {
+                            $.extend(resolved, map[mapKey]);
+                            matched = true;
+                        }
+                    }
+                });
+            });
+
+            if (!matched && Object.prototype.hasOwnProperty.call(map, '*')) {
+                $.extend(resolved, map['*']);
+            }
+
+            return resolved;
+        }
+
+        function buildUrl(urlTemplate, driverValue) {
+            var value = '';
+            if (Array.isArray(driverValue)) {
+                value = driverValue.join(',');
+            } else if (driverValue !== null && typeof driverValue !== 'undefined') {
+                value = driverValue;
+            }
+            return urlTemplate.replace('{value}', encodeURIComponent(value));
+        }
+
+        function normalizeToArray(value) {
+            if (Array.isArray(value)) {
+                return value.slice();
+            }
+            if (value === null || typeof value === 'undefined' || value === '') {
+                return [];
+            }
+            return [value];
+        }
+
+        function normalizeOptions(data) {
+            var options = [];
+
+            if (!data) {
+                return options;
+            }
+
+            if ($.isArray(data)) {
+                data.forEach(function(item) {
+                    if (typeof item === 'string' || typeof item === 'number') {
+                        options.push({ value: item, label: item });
+                    } else if ($.isPlainObject(item)) {
+                        var value = item.value;
+                        if (typeof value === 'undefined') {
+                            value = item.id;
+                        }
+                        var label = item.label;
+                        if (typeof label === 'undefined') {
+                            label = item.text || item.name || value;
+                        }
+                        options.push({ value: value, label: label });
+                    }
+                });
+            } else if ($.isPlainObject(data)) {
+                Object.keys(data).forEach(function(key) {
+                    var label = data[key];
+                    if ($.isPlainObject(label)) {
+                        var value = label.value;
+                        if (typeof value === 'undefined') {
+                            value = key;
+                        }
+                        var text = label.label || label.text || label.name || value;
+                        options.push({ value: value, label: text });
+                    } else {
+                        options.push({ value: key, label: label });
+                    }
+                });
+            }
+
+            return options;
+        }
+
+        function getDriverValue($driver) {
+            if (!$driver.length) {
+                return null;
+            }
+            var value = $driver.val();
+            if ($driver.prop('multiple')) {
+                return value || [];
+            }
+            return value;
+        }
+
+        function getFieldValue($field) {
+            if (!$field.length) {
+                return null;
+            }
+            var value = $field.val();
+            if ($field.prop('multiple')) {
+                return value || [];
+            }
+            return value;
+        }
+
+        function setFieldValue($field, value) {
+            if (!$field.length) {
+                return;
+            }
+            if ($field.prop('multiple')) {
+                $field.val(value).trigger('change');
+            } else {
+                var selectedValue = Array.isArray(value) ? (value.length ? value[0] : null) : value;
+                if (selectedValue === null) {
+                    selectedValue = '';
+                }
+                $field.val(selectedValue).trigger('change');
+            }
+        }
+
+        function valuesEqual(a, b) {
+            if (Array.isArray(a) && Array.isArray(b)) {
+                if (a.length !== b.length) {
+                    return false;
+                }
+                for (var i = 0; i < a.length; i++) {
+                    if (a[i] !== b[i]) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            return a === b;
+        }
+
+        function cloneValue(value) {
+            if (Array.isArray(value)) {
+                return value.slice();
+            }
+            return value;
+        }
+
+        function cssEscape(value) {
+            if (value === null || typeof value === 'undefined') {
+                return '';
+            }
+            if (window.CSS && window.CSS.escape) {
+                return window.CSS.escape(String(value));
+            }
+            return String(value).replace(/"/g, '\\"');
+        }
+
+        return {
+            register: register
+        };
+    })();
 
     window.bpFieldInitDependentOptions = function(element) {
-        var $element = $(element);
-
-        if (!$element.length) {
-            return;
-        }
-
-        if ($element.closest('[data-template-item="true"]').length) {
-            return;
-        }
-
-        if ($element.data('bp-dependent-initialized')) {
-            return;
-        }
-
-        $element.data('bp-dependent-initialized', true);
-        $element.data('bp-dependent-instance', new DependentField($element));
+        DependentFieldManager.register(element);
     };
-})(jQuery);
+
+})(window.jQuery);
 
