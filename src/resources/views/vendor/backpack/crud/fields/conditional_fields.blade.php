@@ -70,8 +70,7 @@
             @endphp
             <div class="bp-cf-branch d-none row" data-branch-value="{{ $value }}" id="{{ $groupId }}">
                 @foreach($fieldsInBranch as $sub)
-                    @php 
-                    \Log::info(print_r($sub, true));
+                    @php
                       $renderField($sub); 
                     @endphp
                 @endforeach
