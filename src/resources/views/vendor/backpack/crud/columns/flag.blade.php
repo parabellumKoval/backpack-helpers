@@ -1,6 +1,5 @@
-<!-- fail, completed, pending, canceled, new -->
 @php
-$code = $entry->locale ?? null;
+$value = data_get($entry, $column['name']);
 @endphp
 
-<span>{{ get_flag($code) }}</span>
+<span>{{ get_flag($value) }}</span>

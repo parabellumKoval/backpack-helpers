@@ -183,12 +183,6 @@
          */
         function bpFieldInitRepeatableConditionalElement(element) {
 
-            if (element.data('repeatable-initialized')) {
-                return;
-            }
-
-            element.data('repeatable-initialized', true);
-
             var field_name = element.attr('uid');
 
             // element will be a jQuery wrapped DOM node

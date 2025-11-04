@@ -3,7 +3,7 @@
     $attr          = $column['attribute'] ?? $column['name'] ?? 'user_id'; // из какого поля брать ID
     $relation      = $column['relation'] ?? null;                          // если есть relation, используем его
     $userModelFqn  = $column['user_model'] ?? config('backpack.profile.user_model', \App\Models\User::class);
-    $avatarField   = $column['avatar_field'] ?? 'avatar';
+    $avatarField   = $column['avatar_field'] ?? 'avatar' ?? 'avatar_url';
     $emailField    = $column['email_field'] ?? 'email';
     $nameField     = $column['name_field'] ?? 'name'; // если в модели есть единое поле name
     $nameFields    = $column['name_fields'] ?? ['first_name','last_name']; // если name пустой — склеим first/last
