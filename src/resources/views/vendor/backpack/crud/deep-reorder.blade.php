@@ -32,17 +32,6 @@
           $parent = null;
       }
   }
-
-  // Функция-помощник: сформировать URL reorder с нужным parent
-  function reorder_url_with_parent($baseUrl, $scopeKey, $id) {
-      $params = request()->all();
-      if ($id === null) {
-          unset($params[$scopeKey]);
-      } else {
-          $params[$scopeKey] = $id;
-      }
-      return $baseUrl.(count($params) ? ('?'.http_build_query($params)) : '');
-  }
 @endphp
 
 @section('header')
@@ -97,61 +86,6 @@
 @endsection
 
 @section('content')
-@php
-// ---------- Вспомогательная функция отрисовки ветки ----------
-function tree_element_scoped($entry, $key, $all_entries, $crud, $scopeParentId, $showChildrenBtn, $childrenBtnLabel, $baseReorderUrl, $scopeKey)
-{
-    if (! isset($entry->tree_element_shown)) {
-        // помечаем показанным
-        $all_entries[$key]->tree_element_shown = true;
-        $entry->tree_element_shown = true;
-
-        // считаем детей в ПРЕДЕЛАХ текущего набора $all_entries
-        $children = [];
-        foreach ($all_entries as $sKey => $subentry) {
-            if ((string)$subentry->parent_id === (string)$entry->getKey()) {
-                $children[] = $subentry;
-            }
-        }
-        $children = collect($children)->sortBy('lft');
-
-        // ли-элемент
-        echo '<li id="list_'.$entry->getKey().'" data-original-parent-id="'.e((int)$entry->parent_id).'">';
-        echo '<div class="d-flex align-items-center justify-content-between gap-2">';
-        echo '  <span class="d-inline-flex align-items-center"><span class="disclose"><span></span></span>'.e(object_get($entry, $crud->get('reorder.label'))).'</span>';
-
-        // кнопка «Отсортировать детей» (если у элемента ЕСТЬ дети в текущем наборе)
-        if ($showChildrenBtn && count($children)) {
-            $childUrl = reorder_url_with_parent($baseReorderUrl, $scopeKey, $entry->getKey());
-            echo '  <a href="'.e($childUrl).'" class="btn btn-sm btn-outline-primary ml-2">'.$childrenBtnLabel.'</a>';
-        }
-
-        echo '</div>';
-
-        // если есть дети - рекурсивно
-        if (count($children)) {
-            echo '<ol>';
-            foreach ($children as $cKey => $child) {
-                $children[$cKey] = tree_element_scoped(
-                    $child,
-                    $child->getKey(),
-                    $all_entries,
-                    $crud,
-                    $scopeParentId,
-                    $showChildrenBtn,
-                    $childrenBtnLabel,
-                    $baseReorderUrl,
-                    $scopeKey
-                );
-            }
-            echo '</ol>';
-        }
-        echo '</li>';
-    }
-
-    return $entry;
-}
-@endphp
 
 <div class="row mt-4">
     <div class="{{ $crud->getReorderContentClass() }}">
@@ -175,7 +109,7 @@ function tree_element_scoped($entry, $key, $all_entries, $crud, $scopeParentId, 
                 }
 
                 foreach ($root_entries as $key => $entry) {
-                    $root_entries[$key] = tree_element_scoped(
+                    $root_entries[$key] = render_tree_element_scoped(
                         $entry, $key, $all_entries, $crud, $scopeParentId,
                         $showChildrenBtn, $childrenBtnLabel, $baseReorderUrl, $scopeKey
                     );
