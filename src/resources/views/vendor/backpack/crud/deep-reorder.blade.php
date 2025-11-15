@@ -32,6 +32,7 @@
           $parent = null;
       }
   }
+
 @endphp
 
 @section('header')
@@ -90,7 +91,13 @@
 <div class="row mt-4">
     <div class="{{ $crud->getReorderContentClass() }}">
         <div class="card p-4">
-            <p>{{ trans('backpack::crud.reorder_text') }}</p>
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <p class="mb-0">{{ trans('backpack::crud.reorder_text') }}</p>
+                <button type="button" class="btn btn-outline-secondary btn-sm mt-2 mt-md-0" id="toggleTreeVisibility">
+                    <i class="la la-eye-slash mr-1"></i>
+                    <span>Скрыть потомков</span>
+                </button>
+            </div>
 
             <ol class="sortable mt-0">
             @php
@@ -146,6 +153,7 @@
     .sortable li.mjs-nestedSortable-collapsed > ol { display: none; }
     .sortable li.mjs-nestedSortable-collapsed > div > .disclose > span:before { content: '+ '; }
     .sortable li.mjs-nestedSortable-expanded > div > .disclose > span:before { content: '- '; }
+    ol.sortable.sortable-hide-children li > ol { display: none !important; }
 </style>
 <link rel="stylesheet" href="{{ asset('packages/backpack/crud/css/crud.css').'?v='.config('backpack.base.cachebusting_string') }}">
 <link rel="stylesheet" href="{{ asset('packages/backpack/crud/css/reorder.css').'?v='.config('backpack.base.cachebusting_string') }}">
@@ -160,7 +168,9 @@
 <script type="text/javascript">
 jQuery(function($) {
     // Инициализация nestedSortable
-    $('.sortable').nestedSortable({
+    var $tree = $('.sortable');
+    var treeCollapsedClass = 'sortable-hide-children';
+    $tree.nestedSortable({
         forcePlaceholderSize: true,
         handle: 'div',
         helper: 'clone',
@@ -173,12 +183,52 @@ jQuery(function($) {
         toleranceElement: '> div',
         maxLevels: {{ $crud->get('reorder.max_level') ?? 3 }},
         isTree: true,
-        expandOnHover: 700,
+        expandOnHover: false,
         startCollapsed: false
     });
 
     $('.disclose').on('click', function() {
         $(this).closest('li').toggleClass('mjs-nestedSortable-collapsed').toggleClass('mjs-nestedSortable-expanded');
+    });
+
+    var $toggleChildrenBtn = $('#toggleTreeVisibility');
+    var childrenVisible = true;
+
+    function applyTreeVisibility() {
+        if (!$toggleChildrenBtn.length) return;
+        var $branches = $tree.find('li.mjs-nestedSortable-branch');
+        if (childrenVisible) {
+            $tree.removeClass(treeCollapsedClass);
+            $branches.removeClass('mjs-nestedSortable-collapsed').addClass('mjs-nestedSortable-expanded');
+        } else {
+            $tree.addClass(treeCollapsedClass);
+            $branches.removeClass('mjs-nestedSortable-expanded').addClass('mjs-nestedSortable-collapsed');
+        }
+    }
+
+    function updateToggleChildrenBtn() {
+        if (!$toggleChildrenBtn.length) return;
+        var label = childrenVisible ? 'Скрыть потомков' : 'Показать потомков';
+        var icon = childrenVisible ? 'la-eye-slash' : 'la-eye';
+        $toggleChildrenBtn.attr('aria-pressed', childrenVisible ? 'true' : 'false');
+        $toggleChildrenBtn.find('span').text(label);
+        $toggleChildrenBtn.find('i').attr('class', 'la ' + icon + ' mr-1');
+    }
+
+    if ($toggleChildrenBtn.length) {
+        $toggleChildrenBtn.on('click', function() {
+            childrenVisible = !childrenVisible;
+            applyTreeVisibility();
+            updateToggleChildrenBtn();
+        });
+        applyTreeVisibility();
+        updateToggleChildrenBtn();
+    }
+
+    var collapseEnforceEvents = 'sort sortchange sortover sortout sortreceive sortstop sortupdate';
+    $tree.on(collapseEnforceEvents, function() {
+        if (!$toggleChildrenBtn.length || childrenVisible) return;
+        applyTreeVisibility();
     });
 
     var scopeParentId = {!! $scopeParentId ? (int) $scopeParentId : 'null' !!};
