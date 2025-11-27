@@ -2,7 +2,7 @@
     @push('crud_list_styles')
         <style>
             .translation-progress-meta {
-                font-size: 11px;
+                font-size: 14px;
                 letter-spacing: 0.03em;
             }
 
@@ -26,7 +26,8 @@
             }
 
             .translation-locale-tag {
-                font-size: 6px;
+                font-weight: 700;
+                font-size: 8px;
                 letter-spacing: 0.08em;
                 text-transform: uppercase;
                 color: #adb5bd;

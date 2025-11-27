@@ -25,7 +25,6 @@
     $escaped = $column['escaped'] ?? true;
 @endphp
 
-@include('crud::columns.partials.translation_progress_styles')
 
 <div class="translation-text-progress d-flex flex-column">
     <div class="translation-text-progress-value">
@@ -39,8 +38,8 @@
             @endif
         @endif
     </div>
-    <div class="translation-progress-meta d-flex justify-content-between align-items-center mt-1">
-        <small class="translation-progress-summary {{ $presentation['summary_class'] }}">
+    <div class="translation-progress-meta d-flex justify-content-start align-items-center mt-1">
+        <small class="translation-progress-summary mr-4 {{ $presentation['summary_class'] }}">
             {{ $presentation['summary'] }}
         </small>
         <div class="translation-locale-tags translation-locale-tags--compact">

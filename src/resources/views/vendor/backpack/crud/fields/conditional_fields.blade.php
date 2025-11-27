@@ -124,6 +124,11 @@
 
             function valueOf(el) {
               if (!el) return null;
+
+              if (el.__bp_cf_value_source) {
+                return el.__bp_cf_value_source.value;
+              }
+
               if (el.type === 'checkbox') return el.checked ? (el.value || '1') : '';
               if (el.type === 'radio') {
                 var form = el.form || document;
@@ -156,14 +161,36 @@
               if (!root) return null;
 
               var container = root.closest('.conditional-container');
+              if (!container) return null;
 
-              var anyField = container.querySelector(
-                '[data-bp-cf-driver="1"] input, ' +
-                '[data-bp-cf-driver="1"] select, ' +
-                '[data-bp-cf-driver="1"] textarea'
-              );
+              var wrapper = container.querySelector('[data-bp-cf-driver="1"]');
+              if (!wrapper) return null;
 
-              if (anyField) return anyField;
+              // предпочитаем интерактивные элементы (не hidden), чтобы change-события срабатывали корректно
+              var preferred = wrapper.querySelector('input:not([type=hidden]), select, textarea');
+              var fallback = wrapper.querySelector('input, select, textarea');
+
+              var driver = preferred || fallback;
+              if (!driver) return null;
+
+              var driverName = root.getAttribute('data-driver-name');
+              if (driverName) {
+                var escaped = driverName;
+                if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+                  escaped = CSS.escape(driverName);
+                } else {
+                  escaped = driverName.replace(/["\\]/g, '\\$&');
+                }
+
+                var hidden = wrapper.querySelector('input[type="hidden"][name="'+escaped+'"]') ||
+                             wrapper.querySelector('[name="'+escaped+'"]');
+
+                if (hidden && hidden !== driver) {
+                  driver.__bp_cf_value_source = hidden;
+                }
+              }
+
+              return driver;
             }
 
             // MAIN MAIN MAIN

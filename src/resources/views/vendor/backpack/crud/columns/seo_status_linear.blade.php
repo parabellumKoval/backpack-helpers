@@ -15,7 +15,7 @@
                     </strong>
                     <small class="{{ $row['summary_class'] }}">{{ $row['summary'] }}</small>
                 </div>
-                <div class="translation-locale-tags translation-locale-tags--spaced mt-2">
+                <div class="translation-locale-tags translation-locale-tags--spaced mt-1">
                     @foreach($row['badges'] as $badge)
                         <span class="translation-locale-tag {{ $badge['filled'] ? 'is-filled' : '' }}">
                             {{ $badge['code'] }}

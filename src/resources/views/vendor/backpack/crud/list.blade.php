@@ -47,12 +47,24 @@
           @include('crud::inc.filters_navbar')
         @endif
 
+        @php
+          $rowStackUserColumnIndex = 0;
+        @endphp
         <table id="crudTable" class="bg-white table table-striped table-hover nowrap rounded shadow-xs border-xs mt-2" cellspacing="0">
             <thead>
               <tr>
                 {{-- Table columns --}}
                 @foreach ($crud->columns() as $column)
+                  @php
+                    $rowStackIsUserColumn = empty($column['hasActions']);
+                    if ($rowStackIsUserColumn) {
+                        $rowStackUserColumnIndex++;
+                    }
+                  @endphp
                   <th
+                    data-row-stack-index="{{ $loop->iteration }}"
+                    data-row-stack-user-index="{{ $rowStackIsUserColumn ? $rowStackUserColumnIndex : '' }}"
+                    data-row-stack-has-actions="{{ !empty($column['hasActions']) ? 'true' : 'false' }}"
                     data-orderable="{{ var_export($column['orderable'], true) }}"
                     data-priority="{{ $column['priority'] }}"
                      {{--
@@ -99,6 +111,9 @@
 
                 @if ( $crud->buttons()->where('stack', 'line')->count() )
                   <th data-orderable="false"
+                      data-row-stack-index="{{ count($crud->columns()) + 1 }}"
+                      data-row-stack-user-index=""
+                      data-row-stack-has-actions="true"
                       data-priority="{{ $crud->getActionsColumnPriority() }}"
                       data-visible-in-export="false"
                       >{{ trans('backpack::crud.actions') }}</th>
@@ -146,9 +161,13 @@
   <link rel="stylesheet" href="{{ asset('packages/backpack/crud/css/list.css').'?v='.config('backpack.base.cachebusting_string') }}">
 
   @include('crud::inc.translatable_styles')
+  @include('crud::columns.partials.translation_progress_styles')
 
   <!-- CRUD LIST CONTENT - crud_list_styles stack -->
   @stack('crud_list_styles')
+
+  <!-- CRUD COLUMN CONTENT - crud_list_column_styles stack -->
+  @stack('crud_list_column_styles')
 @endsection
 
 @section('after_scripts')
@@ -163,5 +182,3 @@
   
   
 @endsection
-
-
