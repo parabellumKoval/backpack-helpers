@@ -51,7 +51,7 @@ if (!function_exists('render_tree_element_scoped')) {
      * @param string $scopeKey Ключ параметра scope
      * @return object
      */
-    function render_tree_element_scoped($entry, $key, $all_entries, $crud, $scopeParentId, $showChildrenBtn, $childrenBtnLabel, $baseReorderUrl, $scopeKey) {
+function render_tree_element_scoped($entry, $key, $all_entries, $crud, $scopeParentId, $showChildrenBtn, $childrenBtnLabel, $baseReorderUrl, $scopeKey) {
         if (!isset($entry->tree_element_shown)) {
             // помечаем показанным
             $all_entries[$key]->tree_element_shown = true;
@@ -101,5 +101,26 @@ if (!function_exists('render_tree_element_scoped')) {
         }
 
         return $entry;
+    }
+}
+
+if (!function_exists('helper_fetch_key_for_model')) {
+    function helper_fetch_key_for_model(?string $modelClass): ?string
+    {
+        if (!$modelClass) {
+            return null;
+        }
+
+        $modelClass = ltrim($modelClass, '\\');
+
+        foreach (config('helpers.fetchables', []) as $key => $definition) {
+            $definitionClass = ltrim($definition['model'] ?? '', '\\');
+
+            if ($definitionClass === $modelClass) {
+                return $key;
+            }
+        }
+
+        return null;
     }
 }

@@ -16,6 +16,8 @@ class BackpackHelpersServiceProvider extends ServiceProvider
             require_once $helpers;
         }
 
+        $this->loadRoutesFrom(__DIR__.'/routes/backpack/helpers.php');
+
         // Добавляем кастомный путь для представлений Backpack
         View::addNamespace('crud', [
             resource_path('views/vendor/backpack/crud'),

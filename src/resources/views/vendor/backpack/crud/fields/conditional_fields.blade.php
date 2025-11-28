@@ -26,9 +26,45 @@
     $branchKeys = array_keys($branches);
 
 
+    // Проставим значение поля из текущей записи, если Backpack его не задал
+    $prefillValueFromEntry = function (array $field) use ($crud) {
+        if (array_key_exists('value', $field) || ! isset($field['name'])) {
+            return $field;
+        }
+
+        $entry = $crud->getCurrentEntry();
+        if (! $entry) {
+            return $field;
+        }
+
+        $names = (array) $field['name'];
+        $resolvedValues = [];
+
+        foreach ($names as $name) {
+            if (! is_string($name)) {
+                $resolvedValues[] = null;
+                continue;
+            }
+
+            $key = trim(square_brackets_to_dots($name), '.');
+
+            if ($key === '') {
+                $resolvedValues[] = null;
+                continue;
+            }
+
+            $resolvedValues[] = data_get($entry, $key);
+        }
+
+        $field['value'] = count($resolvedValues) === 1 ? $resolvedValues[0] : $resolvedValues;
+
+        return $field;
+    };
+
     // небольшая утилита для рендера произвольного поля
-    $renderField = function (array $f) use ($crud) {
+    $renderField = function (array $f) use ($crud, $prefillValueFromEntry) {
         $f = collect($f)->toArray();
+        $f = $prefillValueFromEntry($f);
 
         // Само поле
         $viewName = 'crud::fields.' . $f['type'];
