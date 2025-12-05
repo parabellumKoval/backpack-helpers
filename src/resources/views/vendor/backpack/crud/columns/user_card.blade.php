@@ -14,6 +14,7 @@
     static $UCACHE = [];
 
     $user = null;
+    $staticOwner = null;
 
     if ($relation && isset($entry->{$relation})) {
         $user = $entry->{$relation};
@@ -34,15 +35,54 @@
         }
     }
 
+    if (!$user && isset($entry)) {
+        $ownerPayload = null;
+        $extrasValue = $entry->extras ?? null;
+
+        if (is_string($extrasValue)) {
+            $decodedExtras = json_decode($extrasValue, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $extrasValue = $decodedExtras;
+            }
+        }
+
+        if (is_array($extrasValue)) {
+            $ownerPayload = $extrasValue['owner'] ?? null;
+        }
+
+        if (is_string($ownerPayload)) {
+            $decoded = json_decode($ownerPayload, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $ownerPayload = $decoded;
+            }
+        }
+
+        if (is_array($ownerPayload)) {
+            if (\Illuminate\Support\Arr::isAssoc($ownerPayload)) {
+                $staticOwner = $ownerPayload;
+            } elseif (isset($ownerPayload[0]) && is_array($ownerPayload[0])) {
+                $staticOwner = $ownerPayload[0];
+            }
+        }
+    }
+
     // ---- Достаём поля ----
-    $email = $user?->{$emailField} ?? null;
+    $email = $user?->{$emailField} ?? ($staticOwner['email'] ?? null);
 
     // name → сперва name, затем first+last, иначе “#ID”
-    $name = $user?->{$nameField} ?? null;
+    $name = $user?->{$nameField} ?? ($staticOwner['name'] ?? null);
     if (!$name && $user) {
         $parts = [];
         foreach ($nameFields as $nf) {
             $val = trim((string) ($user->{$nf} ?? ''));
+            if ($val !== '') $parts[] = $val;
+        }
+        $name = $parts ? implode(' ', $parts) : null;
+    }
+    if (!$name && $staticOwner) {
+        $parts = [];
+        foreach (['first_name', 'last_name'] as $nf) {
+            $val = trim((string) ($staticOwner[$nf] ?? ''));
             if ($val !== '') $parts[] = $val;
         }
         $name = $parts ? implode(' ', $parts) : null;
@@ -56,6 +96,8 @@
     $avatarUrl = null;
     if ($user && !empty($user->{$avatarField})) {
         $avatarUrl = $user->{$avatarField};
+    } elseif ($staticOwner && !empty($staticOwner['photo'])) {
+        $avatarUrl = $staticOwner['photo'];
     } elseif ($email) {
         $hash = md5(strtolower(trim($email)));
         $avatarUrl = "https://www.gravatar.com/avatar/{$hash}?s={$size}&d=mp";

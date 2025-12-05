@@ -35,9 +35,12 @@ class FetchController extends Controller
             ->all();
         $searchId = Arr::get($config, 'search_id', true);
         $idPrefixes = Arr::wrap(Arr::get($config, 'id_prefixes', ['#']));
+        $keyColumn = Arr::get($config, 'key_column');
+        $keyColumn = $keyColumn ? (string) $keyColumn : null;
+        $keyColumn = $keyColumn ?: $modelInstance->getKeyName();
 
         if (empty($columns)) {
-            $columns = [$modelInstance->getKeyName()];
+            $columns = [$keyColumn];
         }
 
         if (! empty($relationColumns)) {
@@ -61,7 +64,7 @@ class FetchController extends Controller
 
             $results = $modelClass::query()
                 ->when(! empty($with), fn ($builder) => $builder->with($with))
-                ->whereIn($modelInstance->getKeyName(), $keys)
+                ->whereIn($keyColumn, $keys)
                 ->get();
 
             return $this->formatResponse($results);
@@ -85,7 +88,7 @@ class FetchController extends Controller
             $searchString,
             $searchId,
             $idPrefixes,
-            $modelInstance
+            $keyColumn
         );
 
         return $this->formatResponse(
@@ -100,9 +103,9 @@ class FetchController extends Controller
         string $searchString,
         bool $searchId,
         array $idPrefixes,
-        Model $modelInstance
+        string $keyColumn
     ): void {
-        $query->where(function (Builder $builder) use ($columns, $relationColumns, $searchString, $searchId, $idPrefixes, $modelInstance) {
+        $query->where(function (Builder $builder) use ($columns, $relationColumns, $searchString, $searchId, $idPrefixes, $keyColumn) {
             foreach ($columns as $index => $column) {
                 $method = $index === 0 ? 'where' : 'orWhere';
                 $builder->{$method}($column, 'LIKE', '%'.$searchString.'%');
@@ -112,7 +115,7 @@ class FetchController extends Controller
                 $idCandidate = $this->normalizeIdSearch($searchString, $idPrefixes);
 
                 if (is_numeric($idCandidate)) {
-                    $builder->orWhere($modelInstance->getKeyName(), $idCandidate);
+                    $builder->orWhere($keyColumn, $idCandidate);
                 }
             }
 

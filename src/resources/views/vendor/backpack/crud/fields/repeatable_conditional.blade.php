@@ -129,10 +129,37 @@
         /**
          * Takes all inputs and makes them an object.
          */
-        function repeatableInputToObj(container_name) {
+        function repeatableInputToObj(containerRef) {
             var arr = [];
+            var container;
 
-            var container = $('[data-repeatable-holder='+container_name+']');
+            if (!containerRef) {
+                return arr;
+            }
+
+            var isJQueryObject = typeof window !== 'undefined'
+                && window.jQuery
+                && containerRef instanceof window.jQuery;
+
+            if (isJQueryObject) {
+                container = containerRef;
+            } else if (containerRef && containerRef.nodeType) {
+                container = $(containerRef);
+            } else {
+                var reference = containerRef;
+
+                if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+                    reference = CSS.escape(reference);
+                }
+
+                container = $('[data-repeatable-holder="'+reference+'"]');
+            }
+
+            if (!container.length) {
+                return arr;
+            }
+
+            container = container.first();
 
             container.children('.well').each(function () {
                 arr.push(repeatableElementToObj($(this)));
@@ -167,7 +194,7 @@
                     var nestedHolder = $input.closest('.repeatable-container').find('[data-repeatable-holder]').first();
 
                     if (nestedHolder.length) {
-                        obj[inputName] = JSON.stringify(repeatableInputToObj(nestedHolder.attr('data-repeatable-holder')));
+                        obj[inputName] = JSON.stringify(repeatableInputToObj(nestedHolder));
                         return;
                     }
                 }
@@ -325,14 +352,18 @@
                         // only for displaying purposes, when is set as `data-value-prefix` is when it is part of the value
                         // like image field.
                         let prefix = $(this).data('value-prefix') ? $(this).data('value-prefix') : '';
-                        let value = values[$(this).data('repeatable-input-name')];
+                        let storedValue = values[$(this).data('repeatable-input-name')];
+                        let value = storedValue;
+                        let isMultiSelect = $(this).is('select') && $(this).prop('multiple');
 
                         // only apply the prefix when the value is string and not empty.
                         if(typeof value === 'string' && value.length && !value.startsWith("data:image/png;base64")) {
                             value = prefix + value;
                         }
 
-                        if(typeof value === 'object' && value?.length) {
+                        if(Array.isArray(value) && !isMultiSelect) {
+                            value = JSON.stringify(value)
+                        } else if(value !== null && typeof value === 'object' && !Array.isArray(value)) {
                             value = JSON.stringify(value)
                         }
 
@@ -344,7 +375,16 @@
                         // so the fields themselves have to treat this use case, and look at data-selected-options
                         // and create the options based on those values
                         if ($(this).is('select') && $(this).children('option').length == 0) {
-                          $(this).attr('data-selected-options', JSON.stringify(value));
+                          let selectedOptions = [];
+                          if (Array.isArray(storedValue)) {
+                            selectedOptions = storedValue;
+                          } else if (storedValue !== undefined && storedValue !== null && storedValue !== '') {
+                            selectedOptions = [storedValue];
+                          }
+
+                          if (selectedOptions.length) {
+                            $(this).attr('data-selected-options', JSON.stringify(selectedOptions));
+                          }
                         }
                     }
                 });

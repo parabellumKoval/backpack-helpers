@@ -119,6 +119,18 @@ if (!function_exists('helper_fetch_key_for_model')) {
             if ($definitionClass === $modelClass) {
                 return $key;
             }
+
+            if (
+                $definitionClass !== '' &&
+                class_exists($definitionClass) &&
+                class_exists($modelClass) &&
+                (
+                    is_a($modelClass, $definitionClass, true) ||
+                    is_a($definitionClass, $modelClass, true)
+                )
+            ) {
+                return $key;
+            }
         }
 
         return null;
