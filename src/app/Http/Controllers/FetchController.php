@@ -54,8 +54,10 @@ class FetchController extends Controller
         }
 
         if ($queryCallback = Arr::get($config, 'query')) {
-            if (is_callable($queryCallback)) {
-                $query = $queryCallback($query) ?? $query;
+            $queryCallable = $this->resolveQueryCallback($queryCallback);
+
+            if ($queryCallable) {
+                $query = $queryCallable($query) ?? $query;
             }
         }
 
@@ -94,6 +96,42 @@ class FetchController extends Controller
         return $this->formatResponse(
             $query->paginate($perPage)
         );
+    }
+
+    protected function resolveQueryCallback($callback): ?callable
+    {
+        if (is_callable($callback)) {
+            return $callback;
+        }
+
+        if (is_string($callback) && class_exists($callback)) {
+            $resolved = app($callback);
+
+            if (is_callable($resolved)) {
+                return $resolved;
+            }
+
+            if (method_exists($resolved, 'handle') && is_callable([$resolved, 'handle'])) {
+                return [$resolved, 'handle'];
+            }
+        }
+
+        if (is_array($callback) && isset($callback[0], $callback[1])) {
+            $target = $callback[0];
+            $method = $callback[1];
+
+            if (is_string($target) && class_exists($target)) {
+                $target = app($target);
+            }
+
+            $callable = [$target, $method];
+
+            if (is_callable($callable)) {
+                return $callable;
+            }
+        }
+
+        return null;
     }
 
     protected function applySearch(
