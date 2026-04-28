@@ -8,14 +8,17 @@
   $field['init_rows'] = $field['init_rows'] ?? $field['min_rows'] ?? 1;
   $field['max_rows'] = $field['max_rows'] ?? 0;
   $field['min_rows'] =  $field['min_rows'] ?? 0;
+  $field['attributes']['id'] = $field['attributes']['id'] ?? 'rp_'.\Illuminate\Support\Str::random(6);
 @endphp
 
 @include('crud::fields.inc.wrapper_start')
+<div class="repeatable-container">
   <label>{!! $field['label'] !!}</label>
   @include('crud::fields.inc.translatable_icon')
   <input
       type="hidden"
       name="{{ $field['name'] }}"
+      uid="{{ $field['attributes']['id'] }}"
       data-init-function="bpFieldInitRepeatableElement"
       value="{{ $field['value'] }}"
       @include('crud::fields.inc.attributes')
@@ -30,14 +33,14 @@
 
 <div class="container-repeatable-elements">
     <div
-        data-repeatable-holder="{{ $field['name'] }}"
+        data-repeatable-holder="{{ $field['attributes']['id'] }}"
         data-init-rows="{{ $field['init_rows'] }}"
         data-max-rows="{{ $field['max_rows'] }}"
         data-min-rows="{{ $field['min_rows'] }}"
     ></div>
 
     @push('before_scripts')
-    <div class="col-md-12 well repeatable-element row m-1 p-2" data-repeatable-identifier="{{ $field['name'] }}" data-repeatable-template="true">
+    <div class="col-md-12 well repeatable-element row m-1 p-2" data-repeatable-identifier="{{ $field['attributes']['id'] }}" data-repeatable-template="true">
       @if (isset($field['fields']) && is_array($field['fields']) && count($field['fields']))
         <div class="controls">
             <button type="button" class="close delete-element"><span aria-hidden="true">×</span></button>
@@ -66,6 +69,7 @@
 
 
   <button type="button" class="btn btn-outline-primary btn-sm ml-1 add-repeatable-element-button">+ {{ $field['new_item_label'] ?? trans('backpack::crud.new_item') }}</button>
+</div>
 
 @include('crud::fields.inc.wrapper_end')
 
@@ -228,10 +232,11 @@
             element.data('repeatable-initialized', true);
 
             var field_name = element.attr('name');
+            var field_uid = element.attr('uid');
 
             // element will be a jQuery wrapped DOM node
             var template_container = $('[data-repeatable-identifier][data-repeatable-template="true"]').filter(function () {
-                return $(this).attr('data-repeatable-identifier') === field_name;
+                return $(this).attr('data-repeatable-identifier') === field_uid;
             }).first();
 
             if (!template_container.length) {
@@ -239,19 +244,13 @@
                 return;
             }
 
-            var container_holder = element.siblings('.container-repeatable-elements').children('[data-repeatable-holder]').filter(function () {
-                return $(this).attr('data-repeatable-holder') === field_name;
+            var container_holder = element.closest('.repeatable-container').find('.container-repeatable-elements').children('[data-repeatable-holder]').filter(function () {
+                return $(this).attr('data-repeatable-holder') === field_uid;
             }).first();
 
             if (!container_holder.length) {
-                container_holder = element.closest('.container-repeatable-elements').children('[data-repeatable-holder]').filter(function () {
-                    return $(this).attr('data-repeatable-holder') === field_name;
-                }).first();
-            }
-
-            if (!container_holder.length) {
                 container_holder = $('[data-repeatable-holder]').filter(function () {
-                    return $(this).attr('data-repeatable-holder') === field_name;
+                    return $(this).attr('data-repeatable-holder') === field_uid;
                 }).first();
             }
 
